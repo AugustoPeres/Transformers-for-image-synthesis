@@ -6,9 +6,11 @@ import math
 
 from layers import PositionalEncoding
 
+import mlflow
+
 
 class SeqTransformer(pl.LightningModule):
-    def __init__(self, ntoken, d_model, nhead, d_hid, nlayers, learning_rate, max_sequence_len, dropout=0.5):
+    def __init__(self, ntoken, d_model, nhead, d_hid, nlayers, learning_rate, max_sequence_len, use_mlflow=False, dropout=0.5):
         super().__init__()
         self.save_hyperparameters()
 
@@ -25,6 +27,9 @@ class SeqTransformer(pl.LightningModule):
 
         self.learning_rate = learning_rate
 
+        self.use_mlflow = use_mlflow
+        self.training_steps = 0
+
     def forward(self, source):
         # Transpose because we are working with batch first.
         source = torch.transpose(source, 0, 1)
@@ -39,12 +44,18 @@ class SeqTransformer(pl.LightningModule):
         output = self.final_activation(output)
         return torch.transpose(output, 0, 1)
 
-    def training_step(self, batch, _):
-        return self._compute_loss(batch)
+    def training_step(self, batch, batch_id):
+        training_loss = self._compute_loss(batch)
+        if self.use_mlflow:
+            mlflow.log_metric('training loss', training_loss, step=self.training_steps)
+        self.training_steps += 1
+        return training_loss
 
     def validation_step(self, batch, _):
         """Equal to training step but used for validation."""
         val_loss = self._compute_loss(batch)
+        if self.use_mlflow:
+            mlflow.log_metric('validation_loss', val_loss, step=self.training_steps)
         # Log the validation loss to the progress bar.
         self.log('val_loss',
                  val_loss,

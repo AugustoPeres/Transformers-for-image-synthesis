@@ -61,6 +61,8 @@ flags.DEFINE_integer(
 flags.DEFINE_string('output_dir', 'output',
                     'Directory to save the outputs of the experiment.')
 
+flags.DEFINE_boolean('use_mlflow', False, 'Controls if we log to mlflow.')
+
 flags.mark_flag_as_required('path_to_data')
 
 
@@ -104,8 +106,9 @@ def main(_):
     logging.info('Number of training examples %i', len(training_dataset))
     logging.info('Number of validation examples %i', len(validation_dataset))
 
-    mlflow.start_run()
-    log_parameters(num_tokens_in_vocabulary=len(data_set.source_vocabulary),
+    if FLAGS.use_mlflow:
+        mlflow.start_run()
+        log_parameters(num_tokens_in_vocabulary=len(data_set.source_vocabulary),
                    dim_model=FLAGS.dim_model,
                    num_attention_heads=FLAGS.num_attention_heads,
                    dim_feedforward=FLAGS.dim_feedforward,
@@ -121,7 +124,8 @@ def main(_):
         FLAGS.dim_feedforward,
         FLAGS.num_encoder_layers,
         FLAGS.learning_rate,
-        FLAGS.max_sequence_len)
+        FLAGS.max_sequence_len,
+        FLAGS.use_mlflow)
 
     early_stopping_callback = EarlyStopping(
         monitor='val_loss',
