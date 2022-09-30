@@ -2,18 +2,20 @@ import torch
 from torch import nn
 import pytorch_lightning as pl
 
+import math
+
 from layers import PositionalEncoding
 
 
 class SeqTransformer(pl.LightningModule):
-    def __init__(self, ntoken, d_model, nhead, d_hid, nlayers, dropout=0.5):
+    def __init__(self, ntoken, d_model, nhead, d_hid, nlayers, learning_rate, max_sequence_len, dropout=0.5):
         super().__init__()
         self.save_hyperparameters()
 
-        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        self.pos_encoder = PositionalEncoding(d_model, dropout, max_len=max_sequence_len)
         encoder_layers = nn.TransformerEncoderLayer(d_model, nhead, d_hid,
                                                     dropout)
-        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, nlayers)
         self.embedding = nn.Embedding(ntoken, d_model)
         self.d_model = d_model
         self.linear = nn.Linear(d_model, ntoken)
@@ -21,15 +23,17 @@ class SeqTransformer(pl.LightningModule):
 
         self.n_tokens = ntoken
 
+        self.learning_rate = learning_rate
+
     def forward(self, source):
         # Transpose because we are working with batch first.
         source = torch.transpose(source, 0, 1)
-        # Compute the mask
-        src_mask = self.generate_square_subsequent_mask(
-            source.shape[0]).type_as(src_mask)
 
         source = self.embedding(source) * math.sqrt(self.d_model)
         source = self.pos_encoder(source)
+        # Compute the mask
+        src_mask = self.generate_square_subsequent_mask(
+            source.shape[0]).type_as(source)
         output = self.transformer_encoder(source, src_mask)
         output = self.linear(output)
         output = self.final_activation(output)
@@ -73,9 +77,12 @@ class SeqTransformer(pl.LightningModule):
                           (batch_out.shape[0] * batch_out.shape[1], )))
         return loss
 
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+
     def top_k_generation(self, source, k, end_of_sequence_symbol, max_steps):
         def f(predictions):
-            top_k = torch.topk(predictions).indices.double()
+            top_k = torch.topk(predictions, k).indices.double()
             return top_k[torch.randperm(top_k.shape[0])].view(
                 top_k.size())[0:1]
 
@@ -96,3 +103,7 @@ class SeqTransformer(pl.LightningModule):
             if next_word == end_of_sequence_symbol:
                 break
         return output_so_far
+
+    def generate_square_subsequent_mask(self, sz):
+        """Generates a mask for teacher forcing."""
+        return torch.triu(torch.full((sz, sz), float('-inf')), diagonal=1)
