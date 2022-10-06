@@ -83,7 +83,7 @@ def log_parameters(**kwargs):
 
 
 def main(_):
-    data = dataset.read_lines(FLAGS.path_to_data)[:200]
+    data = dataset.read_lines(FLAGS.path_to_data)
     data_set = dataset.SeqDataSet(data, None)
     num_training_examples = int(FLAGS.train_validation_ratio * len(data))
     num_validation_examples = len(data) - num_training_examples
@@ -122,7 +122,10 @@ def main(_):
                    dim_feedforward=FLAGS.dim_feedforward,
                    num_encoder_layers=FLAGS.num_encoder_layers,
                    learning_rate=FLAGS.learning_rate,
-                   max_sequence_length=FLAGS.max_sequence_len)
+                   max_sequence_length=FLAGS.max_sequence_len,
+                   path_to_data=FLAGS.path_to_data,
+                   num_training_examples=num_training_examples,
+                   num_validation_examples=num_validation_examples)
 
     with open(os.path.join(temp_dir_path.name, 'source_vocab.pickle'),
               'wb') as handle:
