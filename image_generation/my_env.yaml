@@ -1,0 +1,14 @@
+# Python version required to run the project.
+python: "3.8"
+# Dependencies required to build packages. This field is optional.
+build_dependencies:
+  - pip
+  - setuptools
+  - wheel==0.37.1
+# Dependencies required to run the project.
+dependencies:
+  - mlflow
+  - torch
+  - torchtext
+  - pytirch_lightning
+  - absl-py

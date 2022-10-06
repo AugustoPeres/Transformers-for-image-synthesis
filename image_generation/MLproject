@@ -6,4 +6,10 @@ entry_points:
   main:
     parameters:
       path_to_data: path
+      output_dir: {default: output, dtype: path}
     command: "python train.py --path_to_data={path_to_data} --use_mlflow=True"
+  model_generation:
+    parameters:
+      model_path: {default: output/model_checkpoints/model.ckpt, dtype: path}
+      vocabulary_path: {default: output/source_vocab.pickle, dtype: path}
+    command: "python transformer_generation.py --model_path={model_path} --vocabulary_path={vocabulary_path}"

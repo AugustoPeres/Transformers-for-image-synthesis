@@ -6,18 +6,28 @@ import math
 
 from layers import PositionalEncoding
 
-import mlflow
-
 
 class SeqTransformer(pl.LightningModule):
-    def __init__(self, ntoken, d_model, nhead, d_hid, nlayers, learning_rate, max_sequence_len, use_mlflow=False, dropout=0.5):
+
+    def __init__(self,
+                 ntoken,
+                 d_model,
+                 nhead,
+                 d_hid,
+                 nlayers,
+                 learning_rate,
+                 max_sequence_len,
+                 dropout=0.5):
         super().__init__()
         self.save_hyperparameters()
 
-        self.pos_encoder = PositionalEncoding(d_model, dropout, max_len=max_sequence_len)
+        self.pos_encoder = PositionalEncoding(d_model,
+                                              dropout,
+                                              max_len=max_sequence_len)
         encoder_layers = nn.TransformerEncoderLayer(d_model, nhead, d_hid,
                                                     dropout)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, nlayers)
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layers, nlayers)
         self.embedding = nn.Embedding(ntoken, d_model)
         self.d_model = d_model
         self.linear = nn.Linear(d_model, ntoken)
@@ -26,9 +36,6 @@ class SeqTransformer(pl.LightningModule):
         self.n_tokens = ntoken
 
         self.learning_rate = learning_rate
-
-        self.use_mlflow = use_mlflow
-        self.training_steps = 0
 
     def forward(self, source):
         # Transpose because we are working with batch first.
@@ -44,18 +51,18 @@ class SeqTransformer(pl.LightningModule):
         output = self.final_activation(output)
         return torch.transpose(output, 0, 1)
 
-    def training_step(self, batch, batch_id):
+    def training_step(self, batch, _):
         training_loss = self._compute_loss(batch)
-        if self.use_mlflow:
-            mlflow.log_metric('training loss', training_loss, step=self.training_steps)
-        self.training_steps += 1
-        return training_loss
+        self.log('loss',
+                 training_loss,
+                 on_step=False,
+                 on_epoch=True,
+                 prog_bar=True)
+        return {'loss': training_loss}
 
     def validation_step(self, batch, _):
         """Equal to training step but used for validation."""
         val_loss = self._compute_loss(batch)
-        if self.use_mlflow:
-            mlflow.log_metric('validation_loss', val_loss, step=self.training_steps)
         # Log the validation loss to the progress bar.
         self.log('val_loss',
                  val_loss,
@@ -91,7 +98,22 @@ class SeqTransformer(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
-    def top_k_generation(self, source, k, end_of_sequence_symbol, max_steps):
+    def sampling_generation(self,
+                            source,
+                            end_of_sequence_symbol,
+                            max_steps,
+                            stop_when_eos=True):
+        return self.auto_regressive_generation(
+            source, lambda x: torch.multinomial(torch.exp(x), 1),
+            end_of_sequence_symbol, max_steps, stop_when_eos)
+
+    def top_k_generation(self,
+                         source,
+                         k,
+                         end_of_sequence_symbol,
+                         max_steps,
+                         stop_when_eos=True):
+
         def f(predictions):
             top_k = torch.topk(predictions, k).indices.double()
             return top_k[torch.randperm(top_k.shape[0])].view(
@@ -99,19 +121,23 @@ class SeqTransformer(pl.LightningModule):
 
         return self.auto_regressive_regression(source, f,
                                                end_of_sequence_symbol,
-                                               max_steps)
+                                               max_steps, stop_when_eos)
 
-    def auto_regressive_generation(self, source, choice_function,
-                                   end_of_sequence_symbol, max_steps):
+    def auto_regressive_generation(self,
+                                   source,
+                                   choice_function,
+                                   end_of_sequence_symbol,
+                                   max_steps,
+                                   stop_when_eos=True):
         output_so_far = torch.tensor([[source]])
 
         for _ in range(max_steps):
-            predictions = self._forward(output_so_far)
+            predictions = self.forward(output_so_far)
             next_word_predictions = predictions[0][-1]
             next_word = choice_function(next_word_predictions)
             output_so_far = torch.cat(
                 (output_so_far, torch.tensor([[next_word]])), 1)
-            if next_word == end_of_sequence_symbol:
+            if next_word == end_of_sequence_symbol and stop_when_eos:
                 break
         return output_so_far
 

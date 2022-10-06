@@ -1,0 +1,11 @@
+name: conda-env
+channels:
+  - defaults
+dependencies:
+  - pip
+  - pip:
+    - mlflow
+    - torch
+    - torchtext
+    - pytirch_lightning
+    - absl-py

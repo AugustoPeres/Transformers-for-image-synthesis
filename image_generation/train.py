@@ -1,5 +1,7 @@
 import os
+import pickle
 import random
+import tempfile
 
 from absl import app
 from absl import flags
@@ -11,6 +13,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 
 import dataset
 from transformer import SeqTransformer
+from callbacks import MLFlow
 
 import mlflow
 
@@ -35,7 +38,8 @@ flags.DEFINE_integer(
     'dim_feedforward', 64,
     'Dimension of the feed-forward network in the encoder layers.')
 
-flags.DEFINE_float('learning_rate', 1e-3, 'The learning rate of the optimizer.')
+flags.DEFINE_float('learning_rate', 1e-3,
+                   'The learning rate of the optimizer.')
 
 flags.DEFINE_integer(
     'max_sequence_len', 200,
@@ -58,10 +62,8 @@ flags.DEFINE_integer(
     'early_stopping_patience', 10,
     'How many epochs to wait for improvement before stopping.')
 
-flags.DEFINE_string('output_dir', 'output',
-                    'Directory to save the outputs of the experiment.')
-
-flags.DEFINE_boolean('use_mlflow', False, 'Controls if we log to mlflow.')
+flags.DEFINE_integer('num_sequences_to_generate', 50,
+                     'The number of sequences to generate.')
 
 flags.mark_flag_as_required('path_to_data')
 
@@ -74,41 +76,47 @@ def _make_dataset_and_loader(data, source_vocabulary, batch_size, shuffle):
                                              drop_last=False)
     return data_set, dataloader
 
+
 def log_parameters(**kwargs):
     for key, value in kwargs.items():
         mlflow.log_param(str(key), value)
 
+
 def main(_):
-    data = dataset.read_lines(FLAGS.path_to_data)
+    data = dataset.read_lines(FLAGS.path_to_data)[:200]
     data_set = dataset.SeqDataSet(data, None)
     num_training_examples = int(FLAGS.train_validation_ratio * len(data))
     num_validation_examples = len(data) - num_training_examples
     training_data, validation_data = torch.utils.data.random_split(
-        data,
-        [num_training_examples, num_validation_examples],
+        data, [num_training_examples, num_validation_examples],
         generator=torch.Generator().manual_seed(42))
 
-    training_dataset = dataset.SeqDataSet(training_data, data_set.source_vocabulary)
-    training_data_loader = torch.utils.data.DataLoader(training_dataset,
-                                             batch_size=FLAGS.batch_size,
-                                             shuffle=True,
-                                                       drop_last=True)
+    training_dataset = dataset.SeqDataSet(training_data,
+                                          data_set.source_vocabulary)
+    training_data_loader = torch.utils.data.DataLoader(
+        training_dataset,
+        batch_size=FLAGS.batch_size,
+        shuffle=True,
+        drop_last=True)
 
-    validation_dataset = dataset.SeqDataSet(validation_data, data_set.source_vocabulary)
-    validation_data_loader = torch.utils.data.DataLoader(validation_dataset,
-                                             batch_size=FLAGS.batch_size,
-                                             shuffle=False,
-                                             drop_last=False)
+    validation_dataset = dataset.SeqDataSet(validation_data,
+                                            data_set.source_vocabulary)
+    validation_data_loader = torch.utils.data.DataLoader(
+        validation_dataset,
+        batch_size=FLAGS.batch_size,
+        shuffle=False,
+        drop_last=False)
 
-    if not os.path.exists(FLAGS.output_dir):
-        os.makedirs(FLAGS.output_dir)
+    source_vocab = training_dataset.source_vocabulary
+
+    # Create the temporary directory.
+    temp_dir_path = tempfile.TemporaryDirectory('temp_output')
 
     logging.info('Number of training examples %i', len(training_dataset))
     logging.info('Number of validation examples %i', len(validation_dataset))
 
-    if FLAGS.use_mlflow:
-        mlflow.start_run()
-        log_parameters(num_tokens_in_vocabulary=len(data_set.source_vocabulary),
+    mlflow.start_run()
+    log_parameters(num_tokens_in_vocabulary=len(data_set.source_vocabulary),
                    dim_model=FLAGS.dim_model,
                    num_attention_heads=FLAGS.num_attention_heads,
                    dim_feedforward=FLAGS.dim_feedforward,
@@ -116,16 +124,18 @@ def main(_):
                    learning_rate=FLAGS.learning_rate,
                    max_sequence_length=FLAGS.max_sequence_len)
 
+    with open(os.path.join(temp_dir_path.name, 'source_vocab.pickle'),
+              'wb') as handle:
+        pickle.dump(source_vocab, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        mlflow.log_artifact(os.path.join(temp_dir_path.name,
+                                         'source_vocab.pickle'),
+                            artifact_path='vocabulary')
+
     # Create the transformer.
-    model = SeqTransformer(
-        len(data_set.source_vocabulary),
-        FLAGS.dim_model,
-        FLAGS.num_attention_heads,
-        FLAGS.dim_feedforward,
-        FLAGS.num_encoder_layers,
-        FLAGS.learning_rate,
-        FLAGS.max_sequence_len,
-        FLAGS.use_mlflow)
+    model = SeqTransformer(len(data_set.source_vocabulary), FLAGS.dim_model,
+                           FLAGS.num_attention_heads, FLAGS.dim_feedforward,
+                           FLAGS.num_encoder_layers, FLAGS.learning_rate,
+                           FLAGS.max_sequence_len)
 
     early_stopping_callback = EarlyStopping(
         monitor='val_loss',
@@ -133,19 +143,40 @@ def main(_):
         patience=FLAGS.early_stopping_patience,
         mode='min')
 
-    model_checkpoint_callback = ModelCheckpoint(dirpath=os.path.join(
-        FLAGS.output_dir, 'model_checkpoints'),
-                                                monitor='val_loss',
-                                                save_top_k=1)
-
-    all_callbacks = [early_stopping_callback, model_checkpoint_callback]
+    all_callbacks = [
+        early_stopping_callback,
+        MLFlow(save_dir=temp_dir_path.name)
+    ]
 
     accelerator = 'gpu' if FLAGS.use_gpu else None
     trainer = pl.Trainer(max_epochs=FLAGS.max_epochs,
-                             accelerator=accelerator,
-                             callbacks=all_callbacks)
+                         accelerator=accelerator,
+                         callbacks=all_callbacks)
 
     trainer.fit(model, training_data_loader, validation_data_loader)
+
+    # Generate sequences by sampling without context.
+    sequences = []
+    for _ in range(FLAGS.num_sequences_to_generate):
+        source = torch.tensor([[source_vocab['<SOS>']]])
+        sequence = model.sampling_generation(source,
+                                             source_vocab['<EOS>'],
+                                             FLAGS.max_sequence_len,
+                                             stop_when_eos=False).numpy()[0]
+
+        # Recover the codebook indexes from the token indexes.
+        sequence = source_vocab.lookup_tokens(sequence)
+        sequences.append(' '.join(map(str, sequence)) + '\n')
+
+    # Create a file with the generated sequences and log them.
+    with open(os.path.join(temp_dir_path.name,
+                           'generated_sequences_by_sampling.txt'),
+              'w',
+              encoding='utf-8') as f:
+        f.writelines(sequences)
+    mlflow.log_artifact(os.path.join(temp_dir_path.name,
+                                     'generated_sequences_by_sampling.txt'),
+                        artifact_path='generated_sequences')
 
 
 if __name__ == '__main__':

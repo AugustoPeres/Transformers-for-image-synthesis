@@ -6,6 +6,7 @@ import torchtext
 
 import warnings
 
+
 def read_lines(path_to_txt):
     # Read the whole file.
     with open(path_to_txt, encoding='utf-8') as file:
@@ -56,20 +57,20 @@ class SeqDataSet(torch.utils.data.Dataset):
         source_padding = ['PAD'] * size_of_longest_source_sequence
 
         # Padding so that every sequence has the same size.
-        data = [(source + source_padding)[:size_of_longest_source_sequence] for source in data]
+        data = [(source + source_padding)[:size_of_longest_source_sequence]
+                for source in data]
 
         self.data = data
 
-        self.source_vocabulary = _make_vocab(itertools.chain(*list(self.data))) if source_vocab is None else source_vocab
+        self.source_vocabulary = _make_vocab(itertools.chain(
+            *list(self.data))) if source_vocab is None else source_vocab
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         sequence = self.data[idx]
-        sequence_as_indexes = [
-            self.source_vocabulary[e] for e in sequence
-        ]
+        sequence_as_indexes = [self.source_vocabulary[e] for e in sequence]
 
         if -1 in sequence_as_indexes:
             warnings.warn('OUT OF VOCABULARY WORD FOUND IN DATA.')
