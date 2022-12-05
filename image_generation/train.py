@@ -140,6 +140,31 @@ def main(_):
                            FLAGS.num_encoder_layers, FLAGS.learning_rate,
                            FLAGS.max_sequence_len)
 
+    # Generate sequences by sampling before training the model.
+    sequences = []
+    for _ in range(FLAGS.num_sequences_to_generate):
+        source = torch.tensor([[source_vocab['<SOS>']]])
+        sequence = model.sampling_generation(source,
+                                             source_vocab['<EOS>'],
+                                             FLAGS.max_sequence_len,
+                                             stop_when_eos=False).numpy()[0]
+
+        # Recover the codebook indexes from the token indexes.
+        sequence = source_vocab.lookup_tokens(sequence)
+        sequences.append(' '.join(map(str, sequence)) + '\n')
+
+    # Create a file with the generated sequences and log them.
+    with open(os.path.join(temp_dir_path.name,
+                           'generated_sequences_by_sampling_before_training.txt'),
+              'w',
+              encoding='utf-8') as f:
+        f.writelines(sequences)
+    mlflow.log_artifact(os.path.join(temp_dir_path.name,
+                                     'generated_sequences_by_sampling_before_training.txt'),
+                        artifact_path='generated_sequences')
+
+
+
     early_stopping_callback = EarlyStopping(
         monitor='val_loss',
         min_delta=0,
@@ -157,6 +182,8 @@ def main(_):
                          callbacks=all_callbacks)
 
     trainer.fit(model, training_data_loader, validation_data_loader)
+
+    model.eval()
 
     # Generate sequences by sampling without context.
     sequences = []
@@ -180,6 +207,80 @@ def main(_):
     mlflow.log_artifact(os.path.join(temp_dir_path.name,
                                      'generated_sequences_by_sampling.txt'),
                         artifact_path='generated_sequences')
+
+    # Top 5 generation without context.
+    sequences = []
+    for _ in range(FLAGS.num_sequences_to_generate):
+        source = torch.tensor([[source_vocab['<SOS>']]])
+        sequence = model.top_k_generation(source,
+                                          5,
+                                          source_vocab['<EOS>'],
+                                          FLAGS.max_sequence_len,
+                                          stop_when_eos=False).numpy()[0]
+
+        # Recover the codebook indexes from the token indexes.
+        sequence = source_vocab.lookup_tokens(sequence)
+        sequences.append(' '.join(map(str, sequence)) + '\n')
+
+    # Create a file with the generated sequences and log them.
+    with open(os.path.join(temp_dir_path.name,
+                           'generated_sequences_by_top_5.txt'),
+              'w',
+              encoding='utf-8') as f:
+        f.writelines(sequences)
+    mlflow.log_artifact(os.path.join(temp_dir_path.name,
+                                     'generated_sequences_by_top_5.txt'),
+                        artifact_path='generated_sequences')
+
+    # Top 10 generation without context.
+    sequences = []
+    for _ in range(FLAGS.num_sequences_to_generate):
+        source = torch.tensor([[source_vocab['<SOS>']]])
+        sequence = model.top_k_generation(source,
+                                          10,
+                                          source_vocab['<EOS>'],
+                                          FLAGS.max_sequence_len,
+                                          stop_when_eos=False).numpy()[0]
+
+        # Recover the codebook indexes from the token indexes.
+        sequence = source_vocab.lookup_tokens(sequence)
+        sequences.append(' '.join(map(str, sequence)) + '\n')
+
+    # Create a file with the generated sequences and log them.
+    with open(os.path.join(temp_dir_path.name,
+                           'generated_sequences_by_top_10.txt'),
+              'w',
+              encoding='utf-8') as f:
+        f.writelines(sequences)
+    mlflow.log_artifact(os.path.join(temp_dir_path.name,
+                                     'generated_sequences_by_top_10.txt'),
+                        artifact_path='generated_sequences')
+
+    # Top 15 generation without context.
+    sequences = []
+    for _ in range(FLAGS.num_sequences_to_generate):
+        source = torch.tensor([[source_vocab['<SOS>']]])
+        sequence = model.top_k_generation(source,
+                                          15,
+                                          source_vocab['<EOS>'],
+                                          FLAGS.max_sequence_len,
+                                          stop_when_eos=False).numpy()[0]
+
+        # Recover the codebook indexes from the token indexes.
+        sequence = source_vocab.lookup_tokens(sequence)
+        sequences.append(' '.join(map(str, sequence)) + '\n')
+
+    # Create a file with the generated sequences and log them.
+    with open(os.path.join(temp_dir_path.name,
+                           'generated_sequences_by_top_15.txt'),
+              'w',
+              encoding='utf-8') as f:
+        f.writelines(sequences)
+    mlflow.log_artifact(os.path.join(temp_dir_path.name,
+                                     'generated_sequences_by_top_15.txt'),
+                        artifact_path='generated_sequences')
+
+
 
 
 if __name__ == '__main__':
