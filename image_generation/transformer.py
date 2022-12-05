@@ -82,12 +82,19 @@ class SeqTransformer(pl.LightningModule):
         # in target_out.
         batch_in = batch[:, :-1]
         batch_out = batch[:, 1:]
+        # print(f'batch_in shape = {batch_in.shape}')
+        # print(f'batch_out shape = {batch_out.shape}')
 
         predictions = self.forward(batch_in)
 
         flattened_predictions = torch.reshape(
             predictions,
             (batch_in.shape[0] * batch_in.shape[1], self.n_tokens))
+        # print(f'flattened_predictions shape = {flattened_predictions.shape}')
+        # print(f'100th letter prediction = {torch.exp(flattened_predictions[100])}')
+        # print(f'targer shape = {torch.reshape(batch_out, (batch_out.shape[0] * batch_out.shape[1], )).shape}')
+        # print(f'first actual word = {batch_out[0, 100]}')
+        # print(f'value of correct prediction = {torch.exp(flattened_predictions[100][batch_out[0, 100]])}')
 
         loss = nn.NLLLoss()(
             flattened_predictions,
@@ -119,7 +126,7 @@ class SeqTransformer(pl.LightningModule):
             return top_k[torch.randperm(top_k.shape[0])].view(
                 top_k.size())[0:1]
 
-        return self.auto_regressive_regression(source, f,
+        return self.auto_regressive_generation(source, f,
                                                end_of_sequence_symbol,
                                                max_steps, stop_when_eos)
 
@@ -129,14 +136,14 @@ class SeqTransformer(pl.LightningModule):
                                    end_of_sequence_symbol,
                                    max_steps,
                                    stop_when_eos=True):
-        output_so_far = torch.tensor([[source]])
+        output_so_far = torch.tensor([[source]]).to(device=self.device)
 
         for _ in range(max_steps):
             predictions = self.forward(output_so_far)
             next_word_predictions = predictions[0][-1]
             next_word = choice_function(next_word_predictions)
             output_so_far = torch.cat(
-                (output_so_far, torch.tensor([[next_word]])), 1)
+                (output_so_far, torch.tensor([[next_word]])), 1).to(torch.int).to(device=self.device)
             if next_word == end_of_sequence_symbol and stop_when_eos:
                 break
         return output_so_far

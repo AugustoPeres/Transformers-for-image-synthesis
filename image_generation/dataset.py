@@ -44,7 +44,6 @@ class SeqDataSet(torch.utils.data.Dataset):
     def __init__(self, seq_data, source_vocab):
         super(SeqDataSet).__init__()
 
-        # Create the pairs (['A', 'B', 'C', 'D'], ['O', 'W', 'E', 'R'])
         data = [source.split(' ') for source in seq_data]
 
         # Now we add the start of sequence (SOS) and end of sequence (EOS)
