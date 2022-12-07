@@ -37,7 +37,7 @@ class SeqTransformer(pl.LightningModule):
 
         self.learning_rate = learning_rate
 
-    def forward(self, source):
+    def forward(self, source, temperature=1):
         # Transpose because we are working with batch first.
         source = torch.transpose(source, 0, 1)
 
@@ -48,7 +48,7 @@ class SeqTransformer(pl.LightningModule):
             source.shape[0]).type_as(source)
         output = self.transformer_encoder(source, src_mask)
         output = self.linear(output)
-        output = self.final_activation(output)
+        output = self.final_activation(output / temperature)
         return torch.transpose(output, 0, 1)
 
     def training_step(self, batch, _):
@@ -82,6 +82,8 @@ class SeqTransformer(pl.LightningModule):
         # in target_out.
         batch_in = batch[:, :-1]
         batch_out = batch[:, 1:]
+        # print(f'batch_in = {batch_in}')
+        # print(f'batch_out = {batch_out}')
         # print(f'batch_in shape = {batch_in.shape}')
         # print(f'batch_out shape = {batch_out.shape}')
 
@@ -90,11 +92,15 @@ class SeqTransformer(pl.LightningModule):
         flattened_predictions = torch.reshape(
             predictions,
             (batch_in.shape[0] * batch_in.shape[1], self.n_tokens))
+        # flattened_predictions = predictions.view(-1, self.n_tokens)
+
         # print(f'flattened_predictions shape = {flattened_predictions.shape}')
+        # print(f'flattened_predictions = {torch.exp(flattened_predictions)}')
         # print(f'100th letter prediction = {torch.exp(flattened_predictions[100])}')
         # print(f'targer shape = {torch.reshape(batch_out, (batch_out.shape[0] * batch_out.shape[1], )).shape}')
         # print(f'first actual word = {batch_out[0, 100]}')
         # print(f'value of correct prediction = {torch.exp(flattened_predictions[100][batch_out[0, 100]])}')
+        # print(f'targets = {torch.reshape(batch_out, (batch_out.shape[0] * batch_out.shape[1], ))}')
 
         loss = nn.NLLLoss()(
             flattened_predictions,
@@ -109,10 +115,11 @@ class SeqTransformer(pl.LightningModule):
                             source,
                             end_of_sequence_symbol,
                             max_steps,
-                            stop_when_eos=True):
+                            stop_when_eos=True,
+                            temperature=1):
         return self.auto_regressive_generation(
             source, lambda x: torch.multinomial(torch.exp(x), 1),
-            end_of_sequence_symbol, max_steps, stop_when_eos)
+            end_of_sequence_symbol, max_steps, temperature, stop_when_eos)
 
     def top_k_generation(self,
                          source,
@@ -122,32 +129,36 @@ class SeqTransformer(pl.LightningModule):
                          stop_when_eos=True):
 
         def f(predictions):
-            top_k = torch.topk(predictions, k).indices.double()
-            return top_k[torch.randperm(top_k.shape[0])].view(
-                top_k.size())[0:1]
+            values, indices = torch.topk(predictions, k)
+            sampled = torch.multinomial(values / torch.sum(values), 1)
+            return indices[sampled]
 
-        return self.auto_regressive_generation(source, f,
+        return self.auto_regressive_generation(source,
+                                               f,
                                                end_of_sequence_symbol,
-                                               max_steps, stop_when_eos)
+                                               max_steps,
+                                               stop_when_eos=stop_when_eos)
 
     def auto_regressive_generation(self,
                                    source,
                                    choice_function,
                                    end_of_sequence_symbol,
                                    max_steps,
+                                   temperature=1,
                                    stop_when_eos=True):
         output_so_far = torch.tensor([[source]]).to(device=self.device)
 
         for _ in range(max_steps):
-            predictions = self.forward(output_so_far)
+            predictions = self.forward(output_so_far, temperature=temperature)
             next_word_predictions = predictions[0][-1]
             next_word = choice_function(next_word_predictions)
             output_so_far = torch.cat(
-                (output_so_far, torch.tensor([[next_word]])), 1).to(torch.int).to(device=self.device)
+                (output_so_far, torch.tensor([[next_word]])),
+                1).to(torch.int).to(device=self.device)
             if next_word == end_of_sequence_symbol and stop_when_eos:
                 break
         return output_so_far
 
     def generate_square_subsequent_mask(self, sz):
-        """Generates a mask for teacher forcing."""
-        return torch.triu(torch.full((sz, sz), float('-inf')), diagonal=1)
+        """Generates an upper-triangular matrix of -inf, with zeros on diag."""
+        return torch.triu(torch.ones(sz, sz) * float('-inf'), diagonal=1)
