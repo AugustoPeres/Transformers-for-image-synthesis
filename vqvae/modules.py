@@ -25,6 +25,22 @@ class ResBlock(nn.Module):
         return out
 
 
+class VQVAE(nn.Module):
+    """Complete VQVAE"""
+
+    def __init__(self, encoder, quantizer, decoder):
+        super().__init__()
+        self.encoder = encoder
+        self.quantizer = quantizer
+        self.decoder = decoder
+
+    def forward(self, x):
+        encoded_x = self.encoder(x)
+        quantized_x, codebook_indices, loss = self.quantizer(encoded_x)
+        decoded_x = self.decoder(quantized_x)
+        return decoded_x, quantized_x, codebook_indices, loss
+
+
 class Decoder(nn.Module):
     """The decoder module."""
 
