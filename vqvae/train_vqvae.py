@@ -1,4 +1,5 @@
 """Trains the vqvae"""
+import tempfile
 
 from absl import app
 from absl import flags
@@ -9,6 +10,9 @@ import pytorch_lightning as pl
 import modules
 import datasets
 import lightning_modules
+import callbacks
+
+import mlflow
 
 FLAGS = flags.FLAGS
 
@@ -24,17 +28,26 @@ flags.DEFINE_integer('number_codebook_arrays', 512,
 
 flags.DEFINE_float('learning_rate', 1e-3, 'The learning rate of the model.')
 
+flags.DEFINE_float('beta', .5, 'Beta')
+
 flags.DEFINE_integer('batch_size', 128, 'Batch size.')
+
+flags.DEFINE_integer('accumulate_batches', 1, 'Batches to accumulate.')
 
 flags.DEFINE_boolean('use_gpu', False, 'Controls if the gpu is used.')
 
 flags.DEFINE_integer('max_epochs', 10, 'The number of epochs to train for.')
 
 
+def _log_parameters(**kwargs):
+    for key, value in kwargs.items():
+        mlflow.log_param(str(key), value)
+
+
 def main(_):
     encoder = modules.Encoder(FLAGS.in_channels, FLAGS.channels)
     quantizer = modules.VectorQuantizer(FLAGS.number_codebook_arrays,
-                                        FLAGS.channels, .25)
+                                        FLAGS.channels, FLAGS.beta)
     decoder = modules.Decoder(FLAGS.channels, FLAGS.in_channels)
     model = modules.VQVAE(encoder, quantizer, decoder)
 
@@ -59,10 +72,26 @@ def main(_):
     lightning_module = lightning_modules.VQVAEWrapper(model,
                                                       FLAGS.learning_rate)
 
-    accelerator = 'gpu' if FLAGS.use_gpu else None
-    trainer = pl.Trainer(max_epochs=FLAGS.max_epochs, accelerator=accelerator)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with mlflow.start_run():
+            run_id = mlflow.active_run().info.run_id
+            reconstruction_callback = callbacks.ReconstructionVisualizer(
+                run_id)
+            loss_callback = callbacks.LossMonitor(temp_dir, run_id, 50)
+            _log_parameters(learning_rate=FLAGS.learning_rate,
+                            batch_size=FLAGS.batch_size,
+                            num_codebook_arrays=FLAGS.number_codebook_arrays,
+                            accumulate_batches=FLAGS.accumulate_batches,
+                            beta=FLAGS.beta)
 
-    trainer.fit(lightning_module, training_data_loader, validation_data_loader)
+        accelerator = 'gpu' if FLAGS.use_gpu else None
+        trainer = pl.Trainer(
+            max_epochs=FLAGS.max_epochs,
+            accelerator=accelerator,
+            accumulate_grad_batches=FLAGS.accumulate_batches,
+            callbacks=[reconstruction_callback, loss_callback])
+        trainer.fit(lightning_module, training_data_loader,
+                    validation_data_loader)
 
 
 if __name__ == '__main__':
