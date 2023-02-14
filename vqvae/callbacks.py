@@ -1,6 +1,7 @@
 """Callbacks used for training."""
 import os
 
+import numpy as np
 import torch
 from pytorch_lightning.callbacks import Callback
 
@@ -39,9 +40,9 @@ class ReconstructionVisualizer(Callback):
                          f'batch_{self.validation_batches:015}.png'))
 
     def plot_reconstructions(self, output, path):
-        original_images = [output['images'][i].cpu().numpy() for i in range(4)]
+        original_images = [np.float32(output['images'][i].cpu().numpy()) for i in range(4)]
         reconstructions = [
-            output['reconstructions'][i].cpu().numpy() for i in range(4)
+            np.float32(output['reconstructions'][i].cpu().numpy()) for i in range(4)
         ]
         fig, axs = plt.subplots(4, 2, figsize=(6, 10))
         for i in range(4):
