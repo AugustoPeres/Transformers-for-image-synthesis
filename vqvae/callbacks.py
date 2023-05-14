@@ -32,7 +32,7 @@ class ReconstructionVisualizer(Callback):
         self.epoch += 1
         self.validation_batches = 0
 
-    def on_validation_batch_end(self, _, __, outputs, ___, ____, _____):
+    def on_validation_batch_end(self, _, __, outputs, ___, ____):
         self.validation_batches += 1
         self.plot_reconstructions(
             outputs,
@@ -40,16 +40,27 @@ class ReconstructionVisualizer(Callback):
                          f'batch_{self.validation_batches:015}.png'))
 
     def plot_reconstructions(self, output, path):
-        original_images = [np.float32(output['images'][i].cpu().numpy()) for i in range(4)]
-        reconstructions = [
-            np.float32(output['reconstructions'][i].cpu().numpy()) for i in range(4)
+        num_plots = min(4, len(output['images']))
+        original_images = [
+            np.float32(output['images'][i].cpu().numpy())
+            for i in range(num_plots)
         ]
-        fig, axs = plt.subplots(4, 2, figsize=(6, 10))
-        for i in range(4):
-            axs[i, 0].imshow(original_images[i])
-            axs[i, 1].imshow(reconstructions[i])
-            axs[i, 0].axis('off')
-            axs[i, 1].axis('off')
+        reconstructions = [
+            np.float32(output['reconstructions'][i].cpu().numpy())
+            for i in range(num_plots)
+        ]
+        fig, axs = plt.subplots(num_plots, 2, figsize=(6, 10))
+        for i in range(num_plots):
+            if num_plots > 1:
+                axs[i, 0].imshow(original_images[i])
+                axs[i, 1].imshow(reconstructions[i])
+                axs[i, 0].axis('off')
+                axs[i, 1].axis('off')
+            else:
+                axs[0].imshow(original_images[i])
+                axs[1].imshow(reconstructions[i])
+                axs[0].axis('off')
+                axs[1].axis('off')
             plt.tight_layout()
         with mlflow.start_run(run_id=self.run_id):
             mlflow.log_figure(fig, path)
@@ -87,10 +98,29 @@ class LossMonitor(Callback):
 
             if validation_loss <= self.best_loss:
                 self.best_loss = validation_loss
-                path = os.path.join(self.save_dir, 'checkpoint.pt')
-                torch.save(trainer.model.state_dict(), path)
+
+                path_encoder = os.path.join(self.save_dir, 'encoder.pt')
+                path_quantizer = os.path.join(self.save_dir, 'quantizer.pt')
+                path_decoder = os.path.join(self.save_dir, 'decoder.pt')
+                torch.save([
+                    trainer.model.model.encoder.state_dict(),
+                    trainer.model.model.encoder.args
+                ], path_encoder)
+                torch.save([
+                    trainer.model.model.quantizer.state_dict(),
+                    trainer.model.model.quantizer.args
+                ], path_quantizer)
+                torch.save([
+                    trainer.model.model.decoder.state_dict(),
+                    trainer.model.model.decoder.args
+                ], path_decoder)
                 try:
-                    mlflow.log_artifact(path, artifact_path='checkpoints')
+                    mlflow.log_artifact(path_encoder,
+                                        artifact_path='checkpoints')
+                    mlflow.log_artifact(path_quantizer,
+                                        artifact_path='checkpoints')
+                    mlflow.log_artifact(path_decoder,
+                                        artifact_path='checkpoints')
                 # pylint: disable=broad-except
                 except Exception as e:
                     warnings.warn(

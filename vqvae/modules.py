@@ -62,6 +62,8 @@ class Decoder(nn.Module):
         self.res_blocks = nn.Sequential(ResBlock(channels, channels),
                                         ResBlock(channels, channels))
 
+        self.args = {'channels': channels, 'out_channels': out_channels}
+
     def forward(self, x):
         # input shape: B, H, W, C
         # reshape to: B, C, H, W
@@ -88,6 +90,8 @@ class Encoder(nn.Module):
 
         self.res_blocks = nn.Sequential(ResBlock(channels, channels),
                                         ResBlock(channels, channels))
+
+        self.args = {'in_channels': in_channels, 'channels': channels}
 
     def forward(self, x):
         # input shape: B, H, W, C
@@ -119,6 +123,8 @@ class VectorQuantizer(nn.Module):
 
         self.embedding = nn.Embedding(self.n_e, self.e_dim)
         self.embedding.weight.data.uniform_(-1.0 / self.n_e, 1.0 / self.n_e)
+
+        self.args = {'n_e': n_e, 'e_dim': e_dim, 'beta': beta}
 
     def forward(self, z):
         z_flattened = z.view(-1, self.e_dim)

@@ -82,14 +82,17 @@ def main(_):
                             batch_size=FLAGS.batch_size,
                             num_codebook_arrays=FLAGS.number_codebook_arrays,
                             accumulate_batches=FLAGS.accumulate_batches,
-                            beta=FLAGS.beta)
+                            beta=FLAGS.beta,
+                            max_epochs=FLAGS.max_epochs,
+                            in_channels=FLAGS.in_channels,
+                            channels=FLAGS.channels)
 
         accelerator = 'gpu' if FLAGS.use_gpu else None
         trainer = pl.Trainer(
             max_epochs=FLAGS.max_epochs,
             accelerator=accelerator,
             accumulate_grad_batches=FLAGS.accumulate_batches,
-            callbacks=[reconstruction_callback, loss_callback])
+            callbacks=[loss_callback, reconstruction_callback])
         trainer.fit(lightning_module, training_data_loader,
                     validation_data_loader)
 
