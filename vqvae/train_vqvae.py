@@ -36,7 +36,7 @@ flags.DEFINE_integer('accumulate_batches', 1, 'Batches to accumulate.')
 
 flags.DEFINE_boolean('use_gpu', False, 'Controls if the gpu is used.')
 
-flags.DEFINE_integer('max_epochs', 10, 'The number of epochs to train for.')
+flags.DEFINE_integer('max_epochs', 100, 'The number of epochs to train for.')
 
 
 def _log_parameters(**kwargs):
