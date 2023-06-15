@@ -39,7 +39,11 @@ def main(_):
     quantizer.load_state_dict(quantizer_weights)
     decoder.load_state_dict(decoder_weights)
 
+    device = torch.device('cuda:0')
+
     model = modules.VQVAE(encoder, quantizer, decoder)
+    model.to(device)
+    model.eval()
 
     dataset = datasets.ImageDataset(FLAGS.path_to_data)
 
@@ -48,10 +52,14 @@ def main(_):
         with torch.no_grad():
             # Iterate over the dataset storing the codebook indexes in a
             # temporary text file and then logging that file to mlflow.
-            for i in range(len(dataset)):
-                image = dataset[i]['image']
+            dataset_size = len(dataset)
+            for i in range(dataset_size):
+                if i % 50 == 0:
+                    print(f'quantizing image {i} out of {dataset_size}')
+                image = dataset[i]['image'].to(device)
                 _, _, codebook_indices, _ = model(image.unsqueeze(0))
-                codebook_indices = map(str, list(codebook_indices.numpy()))
+                codebook_indices = map(str,
+                                       list(codebook_indices.cpu().numpy()))
                 # Write the indeces seperated by a space.
                 temp_file.write(' '.join(codebook_indices) + '\n')
             with mlflow.start_run(run_id=FLAGS.run_id):

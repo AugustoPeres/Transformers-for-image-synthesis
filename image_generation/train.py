@@ -89,27 +89,22 @@ def main(_):
     data_set = dataset.SeqDataSet(data, None)
     num_training_examples = int(FLAGS.train_validation_ratio * len(data))
     num_validation_examples = len(data) - num_training_examples
-    training_data, validation_data = torch.utils.data.random_split(
-        data, [num_training_examples, num_validation_examples],
-        generator=torch.Generator().manual_seed(42))
+    training_dataset, validation_dataset = torch.utils.data.random_split(
+        data_set, [num_training_examples, num_validation_examples])
 
-    training_dataset = dataset.SeqDataSet(training_data,
-                                          data_set.source_vocabulary)
     training_data_loader = torch.utils.data.DataLoader(
         training_dataset,
         batch_size=FLAGS.batch_size,
         shuffle=True,
         drop_last=True)
 
-    validation_dataset = dataset.SeqDataSet(validation_data,
-                                            data_set.source_vocabulary)
     validation_data_loader = torch.utils.data.DataLoader(
         validation_dataset,
         batch_size=FLAGS.batch_size,
         shuffle=False,
         drop_last=False)
 
-    source_vocab = training_dataset.source_vocabulary
+    source_vocab = training_dataset.dataset.source_vocabulary
 
     # Create the temporary directory.
     temp_dir_path = tempfile.TemporaryDirectory('temp_output')
