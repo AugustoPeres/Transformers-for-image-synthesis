@@ -153,7 +153,8 @@ class SeqTransformer(pl.LightningModule):
             next_word_predictions = predictions[0][-1]
             next_word = choice_function(next_word_predictions)
             output_so_far = torch.cat(
-                (output_so_far, torch.tensor([[next_word]])),
+                (output_so_far, torch.tensor([[next_word]
+                                              ]).to(device=self.device)),
                 1).to(torch.int).to(device=self.device)
             if next_word == end_of_sequence_symbol and stop_when_eos:
                 break

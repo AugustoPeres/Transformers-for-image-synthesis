@@ -19,14 +19,13 @@ flags.DEFINE_string('model_path', None, 'The path for the model.')
 flags.DEFINE_string('vocabulary_path', None, 'The path to the vocabulary.')
 
 flags.DEFINE_integer(
-    'max_sequence_len', 200,
+    'max_sequence_len', 300,
     'Maximum length of the target sequence when using the model for inference')
+
+flags.DEFINE_string('run_id', None, 'MLFLOW run id')
 
 flags.DEFINE_integer('num_sequences_to_generate', 50,
                      'The number of sequences, by each method, to generate.')
-
-flags.DEFINE_string('path_to_data', None,
-                    'Path to the file containing the training data.')
 
 
 def main(_):
@@ -40,10 +39,11 @@ def main(_):
     sequences = []
     for _ in range(FLAGS.num_sequences_to_generate):
         source = torch.tensor([[source_vocab['<SOS>']]])
-        sequence = model.sampling_generation(source,
-                                             source_vocab['<EOS>'],
-                                             FLAGS.max_sequence_len,
-                                             stop_when_eos=False).numpy()[0]
+        sequence = model.sampling_generation(
+            source,
+            source_vocab['<EOS>'],
+            FLAGS.max_sequence_len,
+            stop_when_eos=False).cpu().numpy()[0]
 
         # Recover the codebook indexes from the token indexes.
         sequence = source_vocab.lookup_tokens(sequence)
@@ -53,7 +53,7 @@ def main(_):
     # Create a file with the generated sequences and log them.
     with open('generated_sequences.txt', 'w', encoding='utf-8') as f:
         f.writelines(sequences)
-    with mlflow.start_run():
+    with mlflow.start_run(run_id=FLAGS.run_id):
         mlflow.log_artifact('generated_sequences.txt',
                             artifact_path='generated_sequences')
 
