@@ -60,7 +60,7 @@ def main(_):
 
     indexes = load_indices_from_file(FLAGS.indexes_path, FLAGS.sequence_length)
 
-    for index in indexes:
+    for i, index in enumerate(indexes):
         index = torch.tensor(index, dtype=torch.int, device=device)
         index = index.unsqueeze(0)
 
@@ -71,7 +71,7 @@ def main(_):
             output = decoder(codebook_arrays).cpu().numpy()[0]
 
         plt.imshow(output)
-        plt.show()
+        plt.savefig(f'output_images/output_{i}.png')
 
 
 if __name__ == '__main__':

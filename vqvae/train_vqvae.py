@@ -26,9 +26,13 @@ flags.DEFINE_integer('channels', 256, 'The number of channels')
 flags.DEFINE_integer('number_codebook_arrays', 512,
                      'The number of arrays in the codebook.')
 
-flags.DEFINE_float('learning_rate', 1e-3, 'The learning rate of the model.')
+flags.DEFINE_float('learning_rate', 1e-3,
+                   'The learning rate of the encoder and decoder.')
+flags.DEFINE_float('learning_rate_codebook', 1e-3,
+                   'The learning rate of the codebook.')
 
 flags.DEFINE_float('beta', .5, 'Beta')
+flags.DEFINE_float('gradient_clipping', 0, 'Controls gradient clipping.')
 
 flags.DEFINE_integer('batch_size', 128, 'Batch size.')
 
@@ -69,8 +73,8 @@ def main(_):
         shuffle=False,
         drop_last=False)
 
-    lightning_module = lightning_modules.VQVAEWrapper(model,
-                                                      FLAGS.learning_rate)
+    lightning_module = lightning_modules.VQVAEWrapper(
+        model, FLAGS.learning_rate, FLAGS.learning_rate_codebook)
 
     with tempfile.TemporaryDirectory() as temp_dir:
         with mlflow.start_run():
@@ -78,20 +82,24 @@ def main(_):
             reconstruction_callback = callbacks.ReconstructionVisualizer(
                 run_id)
             loss_callback = callbacks.LossMonitor(temp_dir, run_id, 50)
-            _log_parameters(learning_rate=FLAGS.learning_rate,
-                            batch_size=FLAGS.batch_size,
-                            num_codebook_arrays=FLAGS.number_codebook_arrays,
-                            accumulate_batches=FLAGS.accumulate_batches,
-                            beta=FLAGS.beta,
-                            max_epochs=FLAGS.max_epochs,
-                            in_channels=FLAGS.in_channels,
-                            channels=FLAGS.channels)
+            _log_parameters(
+                learning_rate=FLAGS.learning_rate,
+                learning_rate_codebook=FLAGS.learning_rate_codebook,
+                batch_size=FLAGS.batch_size,
+                num_codebook_arrays=FLAGS.number_codebook_arrays,
+                accumulate_batches=FLAGS.accumulate_batches,
+                beta=FLAGS.beta,
+                max_epochs=FLAGS.max_epochs,
+                in_channels=FLAGS.in_channels,
+                channels=FLAGS.channels,
+                gradient_clipping=FLAGS.gradient_clipping)
 
-        accelerator = 'gpu' if FLAGS.use_gpu else None
+        accelerator = 'gpu' if FLAGS.use_gpu else 'cpu'
         trainer = pl.Trainer(
             max_epochs=FLAGS.max_epochs,
             accelerator=accelerator,
             accumulate_grad_batches=FLAGS.accumulate_batches,
+            gradient_clip_val=FLAGS.gradient_clipping,
             callbacks=[loss_callback, reconstruction_callback])
         trainer.fit(lightning_module, training_data_loader,
                     validation_data_loader)

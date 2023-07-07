@@ -37,18 +37,37 @@ def main(_):
 
     # Generate sequences by sampling without context.
     sequences = []
-    for _ in range(FLAGS.num_sequences_to_generate):
-        source = torch.tensor([[source_vocab['<SOS>']]])
-        sequence = model.sampling_generation(
-            source,
-            source_vocab['<EOS>'],
-            FLAGS.max_sequence_len,
-            stop_when_eos=False).cpu().numpy()[0]
+    for temperature in [1, .8, .7, .6, .5]:
+        for _ in range(FLAGS.num_sequences_to_generate):
+            with torch.no_grad():
+                source = torch.tensor([[source_vocab['<SOS>']]])
+                sequence = model.sampling_generation(
+                    source,
+                    source_vocab['<EOS>'],
+                    FLAGS.max_sequence_len,
+                    stop_when_eos=False,
+                    temperature=temperature).cpu().numpy()[0]
 
-        # Recover the codebook indexes from the token indexes.
-        sequence = source_vocab.lookup_tokens(sequence)
-        print(sequence)
-        sequences.append(' '.join(map(str, sequence)) + '\n')
+            # Recover the codebook indexes from the token indexes.
+            sequence = source_vocab.lookup_tokens(sequence)
+            print(sequence)
+            sequences.append(' '.join(map(str, sequence)) + '\n')
+
+    for k in [3, 5, 10, 15, 30]:
+        for _ in range(FLAGS.num_sequences_to_generate):
+            with torch.no_grad():
+                source = torch.tensor([[source_vocab['<SOS>']]])
+                sequence = model.top_k_generation(
+                    source,
+                    k,
+                    source_vocab['<EOS>'],
+                    FLAGS.max_sequence_len,
+                    stop_when_eos=False).cpu().numpy()[0]
+
+            # Recover the codebook indexes from the token indexes.
+            sequence = source_vocab.lookup_tokens(sequence)
+            print(sequence)
+            sequences.append(' '.join(map(str, sequence)) + '\n')
 
     # Create a file with the generated sequences and log them.
     with open('generated_sequences.txt', 'w', encoding='utf-8') as f:

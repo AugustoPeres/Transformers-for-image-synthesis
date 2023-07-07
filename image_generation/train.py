@@ -86,6 +86,23 @@ def log_parameters(**kwargs):
 
 def main(_):
     data = dataset.read_lines(FLAGS.path_to_data)
+    # data_ = [data[0] for _ in range(100)]  # Uncomment for sanity check
+    # data_ += [data[4] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[8] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[12] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[16] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[20] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[24] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[28] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[32] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[36] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[40] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[44] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[48] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[52] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[56] for _ in range(1000)]  # Uncomment for sanity check
+    # data_ += [data[60] for _ in range(1000)]  # Uncomment for sanity check
+    # data = data_  # Uncomment for sanity check
     data_set = dataset.SeqDataSet(data, None)
     num_training_examples = int(FLAGS.train_validation_ratio * len(data))
     num_validation_examples = len(data) - num_training_examples
@@ -148,7 +165,7 @@ def main(_):
         MLFlow(save_dir=temp_dir_path.name)
     ]
 
-    accelerator = 'gpu' if FLAGS.use_gpu else None
+    accelerator = 'gpu' if FLAGS.use_gpu else 'cpu'
     trainer = pl.Trainer(max_epochs=FLAGS.max_epochs,
                          accelerator=accelerator,
                          callbacks=all_callbacks)

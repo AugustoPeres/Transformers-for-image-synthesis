@@ -6,10 +6,11 @@ import pytorch_lightning as pl
 
 class VQVAEWrapper(pl.LightningModule):
 
-    def __init__(self, model, learning_rate):
+    def __init__(self, model, learning_rate, learning_rate_codebook):
         super().__init__()
         self.model = model
         self.learning_rate = learning_rate
+        self.learning_rate_codebook = learning_rate_codebook
 
     def training_step(self, batch, _):
         loss, reconstruction_loss, images, reconstructions = self.compute_loss(
@@ -48,4 +49,16 @@ class VQVAEWrapper(pl.LightningModule):
 
     def configure_optimizers(self):
         """Wrap the optimizer into a pl optimizer. """
-        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        parameters = [{
+            'params': self.model.encoder.parameters(),
+            'lr': self.learning_rate
+        }, {
+            'params': self.model.decoder.parameters(),
+            'lr': self.learning_rate
+        }, {
+            'params': self.model.quantizer.parameters(),
+            'lr': self.learning_rate_codebook
+        }]
+
+        optimizer = torch.optim.Adam(parameters)
+        return optimizer
