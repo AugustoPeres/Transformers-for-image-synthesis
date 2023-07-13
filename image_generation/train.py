@@ -32,8 +32,6 @@ flags.DEFINE_integer('num_attention_heads', 4,
 
 flags.DEFINE_integer('num_encoder_layers', 2, 'Number of encoder layers.')
 
-flags.DEFINE_integer('num_decoder_layers', 2, 'Number of decoder layers.')
-
 flags.DEFINE_integer(
     'dim_feedforward', 64,
     'Dimension of the feed-forward network in the encoder layers.')
