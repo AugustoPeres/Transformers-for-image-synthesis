@@ -7,6 +7,36 @@ import math
 from layers import PositionalEncoding
 
 
+def f(n, latent_space_dim):
+    return (n // latent_space_dim, n % latent_space_dim)
+
+
+def g(i, j, latent_space_dim):
+    return i * latent_space_dim + j
+
+
+def make_attention_mask(seq_size, w, k):
+    return [
+        make_attention_mask_line(seq_size, i, w, k) for i in range(seq_size)
+    ]
+
+
+def make_attention_mask_line(seq_size, index, w, k):
+    # Positions with -inf are not allowed to attend.
+    i, j = f(index, k)
+    attenting_to = [(i, j)]
+    for vertical in range(w):
+        allowed_range = range(-w, w) if vertical > 0 else range(-w, 0)
+        for horizontal in allowed_range:
+            if (j + horizontal >= 0 and j + horizontal < k
+                    and i - vertical >= 0):
+                attenting_to.append((i - vertical, j + horizontal))
+
+    attentding_to_flat = []
+    aux = lambda i: float('-inf') if f(i, k) not in attenting_to else 0
+    return [aux(i) for i in range(seq_size)]
+
+
 class SeqTransformer(pl.LightningModule):
 
     def __init__(self,
@@ -17,6 +47,8 @@ class SeqTransformer(pl.LightningModule):
                  nlayers,
                  learning_rate,
                  max_sequence_len,
+                 window_size,
+                 latent_dim,
                  dropout=0.5):
         super().__init__()
         self.save_hyperparameters()
@@ -35,6 +67,9 @@ class SeqTransformer(pl.LightningModule):
 
         self.n_tokens = ntoken
 
+        self.window_size = window_size
+        self.latent_dim = latent_dim
+
         self.learning_rate = learning_rate
 
     def forward(self, source, temperature=1):
@@ -46,6 +81,10 @@ class SeqTransformer(pl.LightningModule):
         # Compute the mask
         src_mask = self.generate_square_subsequent_mask(
             source.shape[0]).type_as(source)
+        slidding_window_mask = torch.tensor(
+            make_attention_mask(source.shape[0], self.window_size,
+                                self.latent_dim)).type_as(source)
+        src_mask += slidding_window_mask
         output = self.transformer_encoder(source, src_mask)
         output = self.linear(output)
         output = self.final_activation(output / temperature)

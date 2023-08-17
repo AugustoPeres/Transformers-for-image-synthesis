@@ -39,6 +39,11 @@ flags.DEFINE_integer(
 flags.DEFINE_float('learning_rate', 1e-3,
                    'The learning rate of the optimizer.')
 
+flags.DEFINE_integer('window_size', 8, 'The size of the attention window.')
+flags.DEFINE_integer(
+    'latent_dim', 32,
+    'Dimension of the latent space. That is, the side square dimension.')
+
 flags.DEFINE_float('dropout', .0, 'Dropout')
 
 flags.DEFINE_integer(
@@ -84,6 +89,7 @@ def log_parameters(**kwargs):
 
 def main(_):
     data = dataset.read_lines(FLAGS.path_to_data)
+    # data = [data[0] for _ in range(10)]
     # data_ = [data[0] for _ in range(100)]  # Uncomment for sanity check
     # data_ += [data[4] for _ in range(1000)]  # Uncomment for sanity check
     # data_ += [data[8] for _ in range(1000)]  # Uncomment for sanity check
@@ -136,6 +142,8 @@ def main(_):
                    learning_rate=FLAGS.learning_rate,
                    max_sequence_length=FLAGS.max_sequence_len,
                    path_to_data=FLAGS.path_to_data,
+                   window_size=FLAGS.window_size,
+                   latent_dim=FLAGS.latent_dim,
                    num_training_examples=num_training_examples,
                    num_validation_examples=num_validation_examples)
 
@@ -150,7 +158,8 @@ def main(_):
     model = SeqTransformer(len(data_set.source_vocabulary), FLAGS.dim_model,
                            FLAGS.num_attention_heads, FLAGS.dim_feedforward,
                            FLAGS.num_encoder_layers, FLAGS.learning_rate,
-                           FLAGS.max_sequence_len, FLAGS.dropout)
+                           FLAGS.max_sequence_len, FLAGS.window_size,
+                           FLAGS.latent_dim, FLAGS.dropout)
 
     early_stopping_callback = EarlyStopping(
         monitor='val_loss',
