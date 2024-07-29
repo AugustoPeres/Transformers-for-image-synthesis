@@ -54,9 +54,12 @@ def main(_):
     num_channels = decoder_args['channels']
     latent_space_dim = int(np.sqrt(FLAGS.sequence_length))
 
-    device = torch.device('cuda:0')
-    quantizer.to(device)
-    decoder.to(device)
+    if torch.cuda.is_available():
+        device = torch.device('cuda:0')
+        quantizer.to(device)
+        decoder.to(device)
+    else:
+        device = torch.device('cpu')
 
     indexes = load_indices_from_file(FLAGS.indexes_path, FLAGS.sequence_length)
 

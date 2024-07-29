@@ -39,10 +39,13 @@ def main(_):
     quantizer.load_state_dict(quantizer_weights)
     decoder.load_state_dict(decoder_weights)
 
-    device = torch.device('cuda:0')
-
     model = modules.VQVAE(encoder, quantizer, decoder)
-    model.to(device)
+    if torch.cuda.is_available():
+        device = torch.device('cuda:0')
+        model.to(device)
+    else:
+        device = torch.device('cpu')
+
     model.eval()
 
     dataset = datasets.ImageDataset(FLAGS.path_to_data)

@@ -127,7 +127,7 @@ class VectorQuantizer(nn.Module):
         self.args = {'n_e': n_e, 'e_dim': e_dim, 'beta': beta}
 
     def forward(self, z):
-        z_flattened = z.view(-1, self.e_dim)
+        z_flattened = z.reshape(-1, self.e_dim)
 
         # matrix with distance to the encodings. (B, W * H, n_e)
         d = torch.sum(z_flattened ** 2, dim=1, keepdim=True) + \
