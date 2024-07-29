@@ -53,10 +53,8 @@ flags.DEFINE_integer(
 flags.DEFINE_string('path_to_data', None,
                     'Path to the file containing the training data.')
 
-flags.DEFINE_float(
-    'train_validation_ratio', 0.9,
-    'When no path to validation data is given we use a part of the training'
-    'dataset for validation.')
+flags.DEFINE_float('train_validation_ratio', 0.9,
+                   'Ratio of the dataset to use for validation.')
 
 flags.DEFINE_integer('num_cpus_per_worker', 1,
                      'The number of cpus for each worker.')
@@ -66,9 +64,6 @@ flags.DEFINE_boolean('use_gpu', False, 'Controls if the gpu is used.')
 flags.DEFINE_integer(
     'early_stopping_patience', 10,
     'How many epochs to wait for improvement before stopping.')
-
-flags.DEFINE_integer('num_sequences_to_generate', 50,
-                     'The number of sequences to generate.')
 
 flags.mark_flag_as_required('path_to_data')
 
@@ -89,24 +84,6 @@ def log_parameters(**kwargs):
 
 def main(_):
     data = dataset.read_lines(FLAGS.path_to_data)
-    # data = [data[0] for _ in range(10)]
-    # data_ = [data[0] for _ in range(100)]  # Uncomment for sanity check
-    # data_ += [data[4] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[8] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[12] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[16] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[20] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[24] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[28] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[32] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[36] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[40] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[44] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[48] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[52] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[56] for _ in range(1000)]  # Uncomment for sanity check
-    # data_ += [data[60] for _ in range(1000)]  # Uncomment for sanity check
-    # data = data_  # Uncomment for sanity check
     data_set = dataset.SeqDataSet(data, None)
     num_training_examples = int(FLAGS.train_validation_ratio * len(data))
     num_validation_examples = len(data) - num_training_examples

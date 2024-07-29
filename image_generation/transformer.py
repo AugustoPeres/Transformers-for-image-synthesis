@@ -121,26 +121,12 @@ class SeqTransformer(pl.LightningModule):
         # in target_out.
         batch_in = batch[:, :-1]
         batch_out = batch[:, 1:]
-        # print(f'batch_in = {batch_in}')
-        # print(f'batch_out = {batch_out}')
-        # print(f'batch_in shape = {batch_in.shape}')
-        # print(f'batch_out shape = {batch_out.shape}')
 
         predictions = self.forward(batch_in)
 
         flattened_predictions = torch.reshape(
             predictions,
             (batch_in.shape[0] * batch_in.shape[1], self.n_tokens))
-        # flattened_predictions = predictions.view(-1, self.n_tokens)
-
-        # print(f'flattened_predictions shape = {flattened_predictions.shape}')
-        # print(f'flattened_predictions = {torch.exp(flattened_predictions)}')
-        # print(f'100th letter prediction = {torch.exp(flattened_predictions[100])}')
-        # print(f'targer shape = {torch.reshape(batch_out, (batch_out.shape[0] * batch_out.shape[1], )).shape}')
-        # print(f'first actual word = {batch_out[0, 100]}')
-        # print(f'value of correct prediction = {torch.exp(flattened_predictions[100][batch_out[0, 100]])}')
-        # print(f'targets = {torch.reshape(batch_out, (batch_out.shape[0] * batch_out.shape[1], ))}')
-
         loss = nn.NLLLoss()(
             flattened_predictions,
             torch.reshape(batch_out,

@@ -22,40 +22,31 @@ def _make_vocab(tokens):
         A list of tokens, e.g, ['a', 'a', 'b']
     """
     counter = Counter(tokens)
-    # Creates an object v such that
-    # v['a'] = some_index and
-    # v['word out of vocab'] = -1
     vocab = torchtext.vocab.vocab(counter)
     vocab.set_default_index(-1)
     return vocab
 
 
 class SeqDataSet(torch.utils.data.Dataset):
-    """Pytorch data set containing synthetic data for seq2seq problems.
-
-    This data set contains examples of sequence pairs:
-
-    (RWFLDEGNPGQQL, AATTGCATTCGAAGATCAACTGGACCAACTATGATGCGAA)
-
-    The first (input) sequence represents a sequence of amino-acids and the
-    second (target) sequence represents a sequence of nucleotides.
-    """
+    """Torch dataset for sequence modeling. """
 
     def __init__(self, seq_data, source_vocab):
+        """
+        Args:
+          seq_data: List of 'Token_1 Token_1' type strings.
+          source_vocab: TorchText vocabulary
+
+        """
         super(SeqDataSet).__init__()
 
         data = [source.split(' ') for source in seq_data]
 
-        # Now we add the start of sequence (SOS) and end of sequence (EOS)
-        # markers to the target sequence.
         data = [['<SOS>'] + source + ['<EOS>'] for source in data]
 
-        # Computing the size of the longest sequences.
         size_of_longest_source_sequence = max(map(len, data))
 
         source_padding = ['PAD'] * size_of_longest_source_sequence
 
-        # Padding so that every sequence has the same size.
         data = [(source + source_padding)[:size_of_longest_source_sequence]
                 for source in data]
 
