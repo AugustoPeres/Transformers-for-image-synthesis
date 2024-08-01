@@ -14,7 +14,6 @@ class MLFlow(Callback):
         self.save_dir = save_dir
 
     def on_train_epoch_end(self, trainer, _):
-        # Getting the metrics.
         validation_loss = trainer.callback_metrics['val_loss']
         training_loss = trainer.callback_metrics['loss']
 

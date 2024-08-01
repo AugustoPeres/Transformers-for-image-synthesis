@@ -121,7 +121,6 @@ class LossMonitor(Callback):
                                         artifact_path='checkpoints')
                     mlflow.log_artifact(path_decoder,
                                         artifact_path='checkpoints')
-                # pylint: disable=broad-except
                 except Exception as e:
                     warnings.warn(
                     'Something went wrong logging model to mlflow.\n'\

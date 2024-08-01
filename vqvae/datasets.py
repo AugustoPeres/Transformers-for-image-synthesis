@@ -16,8 +16,6 @@ class ImageDataset(torch.utils.data.Dataset):
           path_to_csv:
             path to a csv image descriptions and a relative path to the
             images.
-          image_dir:
-            Image directory relative to the csv file
         """
         super(ImageDataset).__init__()
         self.data = pd.read_csv(path_to_csv)

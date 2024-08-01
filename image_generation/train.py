@@ -23,8 +23,6 @@ flags.DEFINE_integer('batch_size', 128, 'Size of the mini batches.')
 
 flags.DEFINE_integer('max_epochs', 200, 'Number of epochs to train.')
 
-# The transformer dim is the number of expected features in the encoder/decoder
-# inputs.
 flags.DEFINE_integer('dim_model', 64, 'Dimension of the transformer.')
 
 flags.DEFINE_integer('num_attention_heads', 4,
